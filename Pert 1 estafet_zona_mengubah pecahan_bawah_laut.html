@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESTAFET ZONA: Misi Pecahan Bawah Laut</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background-color: #0077be;
+            background-image: linear-gradient(180deg, #0077be 0%, #004d80 100%);
+            color: white;
+            overflow-x: hidden;
+            touch-action: manipulation;
+        }
+
+        /* Chibi / Bubbly UI Elements */
+        .btn-bubbly {
+            background: linear-gradient(to bottom, #4ade80, #16a34a);
+            border-radius: 9999px;
+            border: 4px solid #fff;
+            box-shadow: 0 8px 0 #15803d, 0 15px 20px rgba(0,0,0,0.4);
+            transition: all 0.1s ease-in-out;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        .btn-bubbly:active, .btn-bubbly.pressed {
+            transform: translateY(8px);
+            box-shadow: 0 0px 0 #15803d, 0 5px 10px rgba(0,0,0,0.4);
+        }
+        .btn-option {
+            background: #ffffff;
+            color: #1e3a8a;
+            border: 4px solid #93c5fd;
+            border-radius: 20px;
+            box-shadow: 0 6px 0 #60a5fa;
+            transition: all 0.1s;
+        }
+        .btn-option:active {
+            transform: translateY(6px);
+            box-shadow: 0 0px 0 #60a5fa;
+        }
+
+        /* Ambient Animations */
+        .float { animation: floating 3s ease-in-out infinite; }
+        .float-delay { animation: floating 3.5s ease-in-out infinite 1s; }
+        @keyframes floating {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-15px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .bubble {
+            position: absolute;
+            bottom: -20px;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            animation: rise 5s infinite ease-in;
+        }
+        @keyframes rise {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-100vh) scale(1.5); opacity: 0; }
+        }
+
+        /* Video / Camera styling */
+        #video-container {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            aspect-ratio: 4/3;
+            margin: 0 auto;
+            border: 6px solid #fbbf24;
+            border-radius: 24px;
+            overflow: hidden;
+            background-color: #000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        #webcam {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror effect */
+        }
+        .zone-overlay {
+            position: absolute;
+            top: 0; bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            opacity: 0.3;
+            transition: all 0.3s;
+            border-right: 2px dashed rgba(255,255,255,0.3);
+        }
+        .zone-overlay:last-child { border-right: none; }
+        .zone-active {
+            opacity: 0.8;
+            background: rgba(74, 222, 128, 0.4);
+            animation: pulse-zone 1.5s infinite;
+            border: 4px solid #4ade80;
+        }
+        @keyframes pulse-zone {
+            0% { box-shadow: inset 0 0 0px #4ade80; }
+            50% { box-shadow: inset 0 0 30px #4ade80; }
+            100% { box-shadow: inset 0 0 0px #4ade80; }
+        }
+
+        <!-- Fraction Rendering Utilities -->
+        .frac-box {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            vertical-align: middle;
+        }
+        .frac-whole { font-size: 1.5em; font-weight: 700; line-height: 1; }
+        .frac-stack { display: flex; flex-direction: column; align-items: center; line-height: 1.1; font-weight: 600; font-size: 1.1em;}
+        .frac-top { border-bottom: 3px solid currentColor; padding: 0 4px; width: 100%; text-align: center; }
+        .frac-bot { padding: 0 4px; }
+        
+        .progress-track { background: rgba(255,255,255,0.2); height: 20px; border-radius: 10px; position: relative; margin: 10px 0; }
+        .progress-fill { background: #fbbf24; height: 100%; border-radius: 10px; transition: width 0.5s ease-out; }
+        .progress-icon { position: absolute; top: -15px; font-size: 30px; transition: left 0.5s ease-out; transform: translateX(-50%); }
+
+        /* Hide elements initially */
+        .hidden-screen { display: none !important; }
+        
+        /* Audio Control Button */
+        #btn-audio-toggle {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 50;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(5px);
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 20px;
+            transition: all 0.2s;
+        }
+        #btn-audio-toggle:hover {
+            background: rgba(255, 255, 255, 0.4);
+            transform: scale(1.1);
+        }
+        #btn-audio-toggle.muted {
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 relative">
+
+    <!-- Audio Toggle Button -->
+    <button id="btn-audio-toggle" title="Matikan/Nyalakan Suara">🔊</button>
+
+    <!-- Ambient Bubbles -->
+    <div id="bubbles-container" class="fixed inset-0 pointer-events-none z-0"></div>
+
+    <!-- SCREEN 1: START & PRIVACY -->
+    <div id="screen-start" class="relative z-10 max-w-2xl w-full bg-white/10 backdrop-blur-md border-4 border-white/30 rounded-3xl p-6 md:p-10 text-center shadow-2xl">
+        <div class="flex justify-center mb-4 gap-4 text-5xl">
+            <span class="float">🌊</span>
+            <span class="float-delay">🧕</span>
+            <span class="float">🐠</span>
+            <span class="float-delay">👳‍♂️</span>
+        </div>
+        <h1 class="text-4xl md:text-5xl font-bold text-yellow-300 drop-shadow-lg mb-2">ESTAFET ZONA</h1>
+        <h2 class="text-2xl md:text-3xl font-semibold text-white drop-shadow-md mb-6">Misi Pecahan Bawah Laut</h2>
+        
+        <div class="bg-blue-900/60 rounded-2xl p-5 mb-6 text-left text-sm md:text-base border border-blue-400">
+            <h3 class="font-bold text-yellow-300 text-lg mb-2 flex items-center"><span class="text-2xl mr-2">📌</span> CATATAN UNTUK GURU & SISWA:</h3>
+            <ul class="list-disc pl-5 space-y-1 mb-4 text-blue-100">
+                <li><strong>Area Bermain:</strong> Pastikan area di depan layar cukup luas dan aman agar siswa bebas bergeser ke kiri dan kanan.</li>
+                <li><strong>Pencahayaan:</strong> Pastikan ruangan cukup terang agar kamera dapat mendeteksi pergerakan dengan baik.</li>
+                <li><strong>Cara Main:</strong> Jawab soal matematika dengan mengeklik pilihan. Jika BENAR, kamu harus <strong>menggerakkan badan/tangan</strong> di ZONA yang diminta untuk mengambil soal selanjutnya!</li>
+            </ul>
+
+            <div class="bg-red-500/20 border-l-4 border-red-400 p-3 rounded-r-lg">
+                <h3 class="font-bold text-red-300 mb-1 flex items-center"><span class="mr-2">🔒</span> KEAMANAN & PRIVASI (WAJIB DIBACA):</h3>
+                <p class="text-red-100 text-xs md:text-sm">
+                    Kamera <strong>HANYA</strong> akan digunakan setelah tombol ditekan. Kamera dipakai murni untuk mendeteksi gerakan secara langsung (in-memory) di komputermu. <strong>TIDAK ADA video atau gambar yang direkam, disimpan, diunduh, atau dikirimkan ke server manapun.</strong> Kamu bisa mematikan kamera kapan saja.
+                </p>
+            </div>
+        </div>
+
+        <button id="btn-start" class="btn-bubbly text-white text-xl md:text-2xl font-bold py-4 px-8 w-full md:w-auto uppercase tracking-wider flex items-center justify-center gap-3 mx-auto">
+            <span>📷 Izinkan Kamera & Mulai Petualangan!</span>
+        </button>
+    </div>
+
+    <!-- SCREEN 2: GAMEPLAY -->
+    <div id="screen-game" class="relative z-10 w-full max-w-4xl hidden-screen flex flex-col items-center">
+        
+        <!-- Header: Stats & Controls -->
+        <div class="w-full flex flex-col md:flex-row justify-between items-center mb-4 gap-4 bg-black/30 p-4 rounded-2xl backdrop-blur-sm">
+            <div class="flex items-center gap-4">
+                <div class="text-center bg-blue-800/80 rounded-xl px-4 py-2 border-2 border-blue-400">
+                    <p class="text-blue-200 text-xs uppercase font-bold tracking-wider">Soal</p>
+                    <p class="text-2xl font-bold text-white"><span id="ui-q-num">1</span> <span class="text-sm text-blue-300">/ 30</span></p>
+                </div>
+                <div class="text-center bg-yellow-500/80 rounded-xl px-4 py-2 border-2 border-yellow-300 shadow-[0_0_15px_rgba(251,191,36,0.5)]">
+                    <p class="text-yellow-100 text-xs uppercase font-bold tracking-wider">Skor Bintang</p>
+                    <p class="text-2xl font-bold text-white flex items-center gap-1"><span id="ui-score">0</span> <span>⭐</span></p>
+                </div>
+            </div>
+            
+            <button id="btn-stop-camera" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-5 rounded-full border-2 border-white shadow-lg transition-transform active:scale-95 flex items-center gap-2">
+                <span>🛑 Matikan Kamera</span>
+            </button>
+        </div>
+
+        <!-- Progress Map -->
+        <div class="w-full mb-6 px-4">
+            <div class="progress-track">
+                <div id="progress-bar" class="progress-fill" style="width: 0%;"></div>
+                <div id="progress-ship" class="progress-icon" style="left: 0%;">🛳️</div>
+            </div>
+        </div>
+
+        <!-- Camera & Interactive Canvas Area -->
+        <div id="video-container" class="relative mb-6">
+            <video id="webcam" autoplay playsinline muted></video>
+            <!-- Hidden canvas for processing frame differences -->
+            <canvas id="process-canvas" class="hidden"></canvas>
+            
+            <!-- Zone Overlays (3 Sections: Kiri, Tengah, Kanan) -->
+            <div id="zone-0" class="zone-overlay" style="left: 0%; width: 33.33%;">KIRI</div>
+            <div id="zone-1" class="zone-overlay" style="left: 33.33%; width: 33.33%;">TENGAH</div>
+            <div id="zone-2" class="zone-overlay" style="left: 66.66%; width: 33.33%;">KANAN</div>
+            
+            <!-- Motion Prompt Overlay -->
+            <div id="motion-prompt" class="absolute inset-0 bg-green-500/80 backdrop-blur-sm flex flex-col items-center justify-center z-20 hidden-screen">
+                <span class="text-6xl mb-4 float">🏊‍♂️</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white text-center drop-shadow-xl px-4" id="motion-text">
+                    Alhamdulillah Benar!<br>Gerak di ZONA TENGAH untuk lanjut!
+                </h2>
+                <div class="mt-6 w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+            </div>
+        </div>
+
+        <!-- Question Panel -->
+        <div id="question-panel" class="w-full bg-white rounded-3xl p-6 md:p-8 shadow-2xl border-4 border-blue-300 text-center relative overflow-hidden">
+            <!-- Decorative wave bg -->
+            <div class="absolute bottom-0 left-0 w-full h-16 bg-blue-100 opacity-50 rounded-b-2xl" style="border-radius: 50% 50% 0 0 / 100% 100% 0 0;"></div>
+            
+            <div class="relative z-10">
+                <h3 id="q-text" class="text-xl md:text-2xl text-blue-900 font-bold mb-6 min-h-[80px] flex items-center justify-center">
+                    Bismillah, ubah pecahan campuran ini menjadi pecahan biasa!
+                </h3>
+                
+                <div id="options-container" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Buttons injected via JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCREEN 3: RESULT -->
+    <div id="screen-result" class="relative z-10 max-w-2xl w-full bg-white/95 backdrop-blur-md border-4 border-yellow-400 rounded-3xl p-8 md:p-12 text-center shadow-2xl hidden-screen">
+        <h1 class="text-5xl md:text-6xl font-bold text-yellow-500 drop-shadow-md mb-4 float">🏆</h1>
+        <h2 class="text-3xl font-bold text-blue-900 mb-2">Masya Allah, Tabarakallah!</h2>
+        <p class="text-xl text-blue-700 font-semibold mb-6">Misi Estafet Bawah Laut Selesai!</p>
+        
+        <div class="bg-blue-50 rounded-2xl p-6 mb-8 border-2 border-blue-200">
+            <p class="text-gray-600 mb-1 uppercase font-bold tracking-wider">Total Skor Bintang</p>
+            <p class="text-6xl font-bold text-yellow-500 flex items-center justify-center gap-2">
+                <span id="final-score">300</span> <span>⭐</span>
+            </p>
+            <p class="text-gray-700 mt-4 text-lg" id="final-message">Kamu luar biasa, pahlawan cilik!</p>
+        </div>
+
+        <button id="btn-restart" class="btn-bubbly text-white text-xl font-bold py-4 px-8 w-full uppercase tracking-wider">
+            Main Lagi
+        </button>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURATION & DATA ---
+        
+        // Motion Detection Config (Frame Differencing)
+        const VIDEO_WIDTH = 320; // Internal processing resolution (low for performance)
+        const VIDEO_HEIGHT = 240;
+        const DIFF_THRESHOLD = 30; // Min color difference to count as "changed pixel"
+        const PIXEL_COUNT_THRESHOLD = 800; // Min number of changed pixels in a zone to trigger action
+
+        // Math Questions (Fase C - Kelas 6) 
+        // 30 items. Progressing from simple mixed->improper, to improper->mixed, to contextual word problems integrating Islamic values (KBC).
+        // Format of Q obj: { text: "HTML String", type: "fraction", options: [ {w,n,d}, ... ], ans: index, zone: 0|1|2 }
+        // For simple formatting, let's use a standard format for options.
+        // Option string format: "w n/d" -> parsed to rich HTML. e.g. "0 3/2" (just 3/2), "1 1/2".
+        
+        const rawQuestions = [
+            // Level 1: Campuran ke Biasa (Dasar)
+            { q: "Misi pertama! Bantu kapal selam kita maju dengan mengubah pecahan campuran ini ke pecahan biasa:<br><br><div class='text-4xl text-blue-800 drop-shadow-sm'>[1 1/2]</div>", opts: ["0 3/2", "0 2/3", "0 1/2"], ans: 0 },
+            { q: "Wah, ada karang penghalang! Selesaikan ini agar kita bisa lewat. Ubah ke pecahan biasa:<br><br><div class='text-4xl text-blue-800 drop-shadow-sm'>[2 1/3]</div>", opts: ["0 5/3", "0 7/3", "0 6/3"], ans: 1 },
+            { q: "Ayo, kamu pasti bisa! Temukan bentuk pecahan biasa dari:<br><br><div class='text-4xl text-blue-800 drop-shadow-sm'>[1 3/4]</div>", opts: ["0 4/4", "0 6/4", "0 7/4"], ans: 2 },
+            { q: "Ikan pari berenang cepat! Cepat tebak pecahan biasa dari:<br><br><div class='text-4xl text-blue-800 drop-shadow-sm'>[2 2/5]</div>", opts: ["0 12/5", "0 10/5", "0 7/5"], ans: 0 },
+            { q: "Semakin dalam lautnya, semakin seru! Ubah ini ke pecahan biasa:<br><br><div class='text-4xl text-blue-800 drop-shadow-sm'>[3 1/2]</div>", opts: ["0 5/2", "0 7/2", "0 6/2"], ans: 1 },
+            { q: "Terus semangat! Ubah pecahan campuran ini ke pecahan biasa:<br><br><div class='text-4xl text-blue-800 drop-shadow-sm'>[1 4/5]</div>", opts: ["0 5/5", "0 4/5", "0 9/5"], ans: 2 },
+            { q: "Berapa pecahan biasa yang tepat untuk misi ini?<br><br><div class='text-4xl text-blue-800 drop-shadow-sm'>[4 1/3]</div>", opts: ["0 13/3", "0 12/3", "0 14/3"], ans: 0 },
+            { q: "Hitung dengan teliti seperti mengemudikan kapal selam! Ubah ke pecahan biasa:<br><br><div class='text-4xl text-blue-800 drop-shadow-sm'>[2 3/4]</div>", opts: ["0 9/4", "0 11/4", "0 10/4"], ans: 1 },
+            { q: "Tebak pecahan biasa dengan cermat:<br><br><div class='text-4xl text-blue-800 drop-shadow-sm'>[3 2/5]</div>", opts: ["0 16/5", "0 15/5", "0 17/5"], ans: 2 },
+            { q: "Misi level 1 hampir selesai! Buktikan kehebatanmu. Ubah ke pecahan biasa:<br><br><div class='text-4xl text-blue-800 drop-shadow-sm'>[5 1/2]</div>", opts: ["0 11/2", "0 10/2", "0 12/2"], ans: 0 },
+
+            // Level 2: Biasa ke Campuran (Menengah)
+            { q: "Hebat! Sekarang kita balik arah. Ubah pecahan biasa ini menjadi pecahan campuran:<br><br><div class='text-4xl text-blue-800 drop-shadow-sm'>[0 5/2]</div>", opts: ["2 1/2", "1 1/2", "2 3/2"], ans: 0 },
+            { q: "Jangan terkecoh ombak! Berapa bentuk pecahan campuran dari:<br><br><div class='text-4xl text-blue-800 drop-shadow-sm'>[0 7/3]</div>", opts: ["1 2/3", "2 1/3", "3 1/3"], ans: 1 },
+            { q: "Ayo hitung pecahan campuran dari harta karun ini:<br><br><div class='text-4xl text-blue-800 drop-shadow-sm'>[0 9/4]</div>", opts: ["2 3/4", "1 1/4", "2 1/4"], ans: 2 },
+            { q: "Penyu laut berenang mendekat. Tebak pecahan campuran dari:<br><br><div class='text-4xl text-blue-800 drop-shadow-sm'>[0 11/5]</div>", opts: ["2 1/5", "2 2/5", "1 4/5"], ans: 0 },
+            { q: "Terus berjuang! Berapa bentuk pecahan campuran dari:<br><br><div class='text-4xl text-blue-800 drop-shadow-sm'>[0 8/3]</div>", opts: ["2 1/3", "2 2/3", "3 1/3"], ans: 1 },
+            { q: "Ubah ke pecahan campuran dengan teliti:<br><br><div class='text-4xl text-blue-800 drop-shadow-sm'>[0 13/4]</div>", opts: ["3 2/4", "2 3/4", "3 1/4"], ans: 2 },
+            { q: "Berapa pecahan campuran yang tersembunyi di sini?<br><br><div class='text-4xl text-blue-800 drop-shadow-sm'>[0 15/2]</div>", opts: ["7 1/2", "6 1/2", "7 3/2"], ans: 0 },
+            { q: "Fokus! Jangan sampai kapalnya melenceng. Ubah pecahan biasa ini ke pecahan campuran:<br><br><div class='text-4xl text-blue-800 drop-shadow-sm'>[0 17/5]</div>", opts: ["3 1/5", "3 2/5", "3 3/5"], ans: 1 },
+            { q: "Hampir selesai level 2. Ubah ke pecahan campuran:<br><br><div class='text-4xl text-blue-800 drop-shadow-sm'>[0 14/3]</div>", opts: ["4 1/3", "3 2/3", "4 2/3"], ans: 2 },
+            { q: "Soal terakhir level 2! Tunjukkan kemampuanmu:<br><br><div class='text-4xl text-blue-800 drop-shadow-sm'>[0 19/4]</div>", opts: ["4 3/4", "4 1/4", "5 1/4"], ans: 0 },
+
+            // Level 3: Konteks Keislaman (KBC - Kurikulum Berbasis Cinta) - Campur
+            { q: "🌿 <b>Berbagi itu Indah!</b><br>Ibu menyedekahkan <span class='text-2xl text-blue-800 font-bold'>[4 2/3]</span> kg kurma ke masjid dekat pelabuhan. Ubah berat kurma ke pecahan biasa agar mudah dibagikan!", opts: ["0 14/3", "0 12/3", "0 13/3"], ans: 0 },
+            { q: "💧 <b>Air Kehidupan</b><br>Ahmad membagikan air zam-zam sebanyak <span class='text-2xl text-blue-800 font-bold'>[0 15/4]</span> liter kepada para nelayan yang kehausan. Berapa pecahan campurannya?", opts: ["4 1/4", "3 3/4", "3 1/4"], ans: 1 },
+            { q: "🌾 <b>Tunaikan Zakat</b><br>Kewajiban zakat fitrah adalah <span class='text-2xl text-blue-800 font-bold'>[2 1/2]</span> kg beras per orang. Ubah ke pecahan biasa untuk mempermudah perhitungan zakat keluarga nelayan!", opts: ["0 4/2", "0 6/2", "0 5/2"], ans: 2 },
+            { q: "🐟 <b>Rezeki dari Allah</b><br>Alhamdulillah, nelayan bersyukur mendapat tangkapan ikan <span class='text-2xl text-blue-800 font-bold'>[0 23/5]</span> kuintal. Ubah ke pecahan campuran agar mudah dicatat!", opts: ["4 3/5", "4 2/5", "5 3/5"], ans: 0 },
+            { q: "📖 <b>Cinta Al-Qur'an</b><br>Fatimah meluangkan waktu <span class='text-2xl text-blue-800 font-bold'>[1 5/6]</span> jam untuk mengaji di pinggir pantai. Berapa jam dalam pecahan biasa?", opts: ["0 7/6", "0 11/6", "0 10/6"], ans: 1 },
+            { q: "🍱 <b>Sayang Anak Yatim</b><br>Panitia menyiapkan <span class='text-2xl text-blue-800 font-bold'>[0 25/7]</span> dus makanan berbuka puasa untuk anak yatim pesisir. Ubah ke pecahan campuran!", opts: ["3 2/7", "2 6/7", "3 4/7"], ans: 2 },
+            { q: "🧶 <b>Gotong Royong</b><br>Warga memotong tali tambang kapal sepanjang <span class='text-2xl text-blue-800 font-bold'>[5 3/8]</span> meter untuk menolong perahu yang mogok. Ubah ke pecahan biasa!", opts: ["0 43/8", "0 40/8", "0 45/8"], ans: 0 },
+            { q: "🛢️ <b>Saling Membantu</b><br>Sebanyak <span class='text-2xl text-blue-800 font-bold'>[0 31/6]</span> liter solar disumbangkan ke nelayan miskin. Berapa pecahan campurannya?", opts: ["5 5/6", "5 1/6", "4 5/6"], ans: 1 },
+            { q: "🍬 <b>Senyum itu Sedekah</b><br>Paman membagikan <span class='text-2xl text-blue-800 font-bold'>[7 1/9]</span> kg rumput laut kepada para santri. Ubah ke pecahan biasa agar mudah ditimbang!", opts: ["0 64/9", "0 62/9", "0 65/9"], ans: 2 },
+            { q: "🌊 <b>Misi Akhir Bawah Laut!</b><br>Nelayan membagikan jaring sepanjang <span class='text-2xl text-blue-800 font-bold'>[0 45/8]</span> meter untuk menjala rezeki halal bersama. Ubah ke pecahan campuran dan raih kemenangan!", opts: ["5 5/8", "5 3/8", "6 5/8"], ans: 0 }
+        ];
+
+        // Ensure exactly 30 questions
+        const questions = rawQuestions.slice(0, 30);
+        
+        // Sesuaikan Target Zone (0: Kiri, 1: Tengah, 2: Kanan) dengan posisi jawaban yang benar.
+        // Jika jawaban benar di index 0 (kiri), target zone = 0 (kiri).
+        questions.forEach((q) => {
+            q.targetZone = q.ans;
+        });
+
+        // State Variables
+        let currentQIndex = 0;
+        let score = 0;
+        let stream = null;
+        let animationFrameId = null;
+        let previousFrameData = null;
+        let gameState = 'STOPPED'; // STOPPED, ANSWERING, WAITING_MOTION
+
+        // DOM Elements mapping
+        const els = {
+            screenStart: document.getElementById('screen-start'),
+            screenGame: document.getElementById('screen-game'),
+            screenResult: document.getElementById('screen-result'),
+            btnStart: document.getElementById('btn-start'),
+            btnStop: document.getElementById('btn-stop-camera'),
+            btnRestart: document.getElementById('btn-restart'),
+            video: document.getElementById('webcam'),
+            canvas: document.getElementById('process-canvas'),
+            qNum: document.getElementById('ui-q-num'),
+            score: document.getElementById('ui-score'),
+            progBar: document.getElementById('progress-bar'),
+            progShip: document.getElementById('progress-ship'),
+            qText: document.getElementById('q-text'),
+            options: document.getElementById('options-container'),
+            motionPrompt: document.getElementById('motion-prompt'),
+            motionText: document.getElementById('motion-text'),
+            finalScore: document.getElementById('final-score'),
+            finalMsg: document.getElementById('final-message'),
+            zones: [
+                document.getElementById('zone-0'),
+                document.getElementById('zone-1'),
+                document.getElementById('zone-2')
+            ]
+        };
+
+        const ctx = els.canvas.getContext('2d', { willReadFrequently: true });
+
+        
+        // Helper to format fraction string "w n/d" into beautiful HTML
+        function parseFractionStr(str) {
+            const parts = str.split(' ');
+            let w = parts[0] !== '0' ? parts[0] : '';
+            let frac = parts.length > 1 ? parts[1] : '';
+            
+            if (!frac) {
+                // If it's just a whole number
+                return `<div class="frac-box"><span class="frac-whole">${w}</span></div>`;
+            }
+
+            const [num, den] = frac.split('/');
+            
+            let html = `<div class="frac-box">`;
+            if (w) {
+                html += `<span class="frac-whole pr-1">${w}</span>`;
+            }
+            html += `<div class="frac-stack">
+                        <span class="frac-top">${num}</span>
+                        <span class="frac-bot">${den}</span>
+                     </div>
+                   </div>`;
+            return html;
+        }
+
+        // Add bubbles dynamically to background
+        function spawnBubbles() {
+            const container = document.getElementById('bubbles-container');
+            setInterval(() => {
+                const bubble = document.createElement('div');
+                bubble.className = 'bubble';
+                const size = Math.random() * 20 + 10;
+                bubble.style.width = `${size}px`;
+                bubble.style.height = `${size}px`;
+                bubble.style.left = `${Math.random() * 100}%`;
+                bubble.style.animationDuration = `${Math.random() * 3 + 4}s`;
+                container.appendChild(bubble);
+                setTimeout(() => bubble.remove(), 7000);
+            }, 800);
+        }
+
+        // --- AUDIO SYNTHESIS SYSTEM (Web Audio API) ---
+        // Generates sounds internally without external files.
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let bgmOscillators = [];
+        let isAudioMuted = false;
+        let bgmInterval = null;
+
+        const btnAudioToggle = document.getElementById('btn-audio-toggle');
+
+        btnAudioToggle.addEventListener('click', () => {
+            isAudioMuted = !isAudioMuted;
+            if (isAudioMuted) {
+                btnAudioToggle.innerText = '🔇';
+                btnAudioToggle.classList.add('muted');
+                stopBGM();
+            } else {
+                btnAudioToggle.innerText = '🔊';
+                btnAudioToggle.classList.remove('muted');
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                if (els.screenGame.classList.contains('hidden-screen') === false) {
+                    playBGM();
+                }
+            }
+        });
+
+        // 1. Play Correct "Cling" Sound
+        function playCorrectSound() {
+            if (isAudioMuted) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            // Bright bell sound (sine wave, high frequency)
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime); // C6
+            osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1); // E6
+            
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.05); // quick attack
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6); // smooth decay
+            
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + 0.6);
+        }
+
+        // 2. Play Wrong "Tetot" Sound
+        function playWrongSound() {
+            if (isAudioMuted) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            // Buzz sound (sawtooth, low frequency)
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime); 
+            osc.frequency.linearRampToValueAtTime(130, audioCtx.currentTime + 0.3); // slight pitch drop
+            
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + 0.4);
+        }
+
+        // 3. Relaxing Background Music (Arpeggio)
+        function playBGM() {
+            if (isAudioMuted) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            stopBGM(); // Ensure no duplicates
+            
+            // A warm, simple pentatonic melody for the ocean theme
+            const notes = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63]; // C4, E4, G4, C5, G4, E4
+            let noteIndex = 0;
+
+            bgmInterval = setInterval(() => {
+                if (isAudioMuted) {
+                    stopBGM();
+                    return;
+                }
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.type = 'sine'; // Very soft, warm tone
+                osc.frequency.setValueAtTime(notes[noteIndex], audioCtx.currentTime);
+                
+                gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.05, audioCtx.currentTime + 0.1); // Very low volume
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
+                
+                osc.start(audioCtx.currentTime);
+                osc.stop(audioCtx.currentTime + 1.5);
+                
+                bgmOscillators.push({osc, gain});
+                
+                // Cleanup old oscillators from array
+                if(bgmOscillators.length > 5) bgmOscillators.shift();
+
+                noteIndex = (noteIndex + 1) % notes.length;
+            }, 600); // Play a note every 600ms
+        }
+
+        function stopBGM() {
+            if (bgmInterval) {
+                clearInterval(bgmInterval);
+                bgmInterval = null;
+            }
+            bgmOscillators.forEach(item => {
+                try { item.osc.stop(); } catch(e){}
+            });
+            bgmOscillators = [];
+        }
+
+
+        async function initCamera() {
+            try {
+                // Request camera explicitly
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: VIDEO_WIDTH, height: VIDEO_HEIGHT, facingMode: "user" }, 
+                    audio: false 
+                });
+                els.video.srcObject = stream;
+                
+                return new Promise(resolve => {
+                    els.video.onloadedmetadata = () => {
+                        // Set internal canvas size to match video processing resolution
+                        els.canvas.width = VIDEO_WIDTH;
+                        els.canvas.height = VIDEO_HEIGHT;
+                        resolve(true);
+                    };
+                });
+            } catch (err) {
+                console.error("Kamera gagal diakses: ", err);
+                alert("Gagal mengakses kamera. Pastikan kamu telah memberi izin dan browser mendukung fitur kamera.");
+                return false;
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            previousFrameData = null;
+        }
+
+        function processVideoFrame() {
+            if (gameState !== 'WAITING_MOTION') {
+                // If not waiting for motion, just request next frame and skip processing to save CPU
+                if (stream) animationFrameId = requestAnimationFrame(processVideoFrame);
+                return;
+            }
+
+            // Draw video to hidden canvas
+            ctx.drawImage(els.video, 0, 0, VIDEO_WIDTH, VIDEO_HEIGHT);
+            const frameData = ctx.getImageData(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT).data;
+
+            if (previousFrameData) {
+                const targetZoneIndex = questions[currentQIndex].targetZone;
+                // Calculate bounding box for the zone
+                // Screen is divided into 3 vertical zones
+                const zoneWidth = VIDEO_WIDTH / 3;
+                // IMPORTANT: The video is visually mirrored via CSS (scaleX(-1)), 
+                // but pixel data (0,0) is still top-left of the original camera feed.
+                // Left in mirrored UI is Right in original pixel data.
+                // UI: Zone 0 (KIRI), Zone 1 (TENGAH), Zone 2 (KANAN).
+                // Original Pixels: x=0 is camera's right side, which user sees as KANAN.
+                // So, Target Zone 0 (KIRI on screen) corresponds to pixel region X: (2 * zoneWidth) to VIDEO_WIDTH
+                // Target Zone 2 (KANAN on screen) corresponds to pixel region X: 0 to zoneWidth.
+                
+                let startX, endX;
+                if (targetZoneIndex === 0) { // KIRI on screen
+                    startX = Math.floor(2 * zoneWidth);
+                    endX = VIDEO_WIDTH;
+                } else if (targetZoneIndex === 2) { // KANAN on screen
+                    startX = 0;
+                    endX = Math.floor(zoneWidth);
+                } else { // TENGAH
+                    startX = Math.floor(zoneWidth);
+                    endX = Math.floor(2 * zoneWidth);
+                }
+
+                let diffCount = 0;
+
+                // Loop through pixels in the target zone
+                // Skip every 4th pixel (step by 16 array elements) for performance
+                for (let y = 0; y < VIDEO_HEIGHT; y += 4) {
+                    for (let x = startX; x < endX; x += 4) {
+                        const i = (y * VIDEO_WIDTH + x) * 4;
+                        
+                        const rDiff = Math.abs(frameData[i] - previousFrameData[i]);
+                        const gDiff = Math.abs(frameData[i+1] - previousFrameData[i+1]);
+                        const bDiff = Math.abs(frameData[i+2] - previousFrameData[i+2]);
+                        
+                        // Simple brightness/color difference threshold
+                        if (rDiff + gDiff + bDiff > DIFF_THRESHOLD) {
+                            diffCount++;
+                        }
+                    }
+                }
+
+                if (diffCount > (PIXEL_COUNT_THRESHOLD / 16)) { // adjusted threshold based on stepping
+                    // MOTION DETECTED!
+                    triggerMotionSuccess();
+                }
+            }
+
+            // Save current frame for next comparison (using typed array for speed)
+            previousFrameData = new Uint8ClampedArray(frameData);
+            
+            if (stream) {
+                animationFrameId = requestAnimationFrame(processVideoFrame);
+            }
+        }
+
+
+        function startGame() {
+            currentQIndex = 0;
+            score = 0;
+            updateHUD();
+            
+            // Start audio context on first user interaction
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            playBGM(); // Start background music
+            
+            els.screenStart.classList.add('hidden-screen');
+            els.screenGame.classList.remove('hidden-screen');
+            
+            loadQuestion();
+            
+            // Start detection loop
+            if (!animationFrameId) {
+                animationFrameId = requestAnimationFrame(processVideoFrame);
+            }
+        }
+
+        function loadQuestion() {
+            gameState = 'ANSWERING';
+            const q = questions[currentQIndex];
+            
+            els.motionPrompt.classList.add('hidden-screen');
+            els.zones.forEach(z => z.classList.remove('zone-active'));
+            
+            // Format question text with beautiful stacked fractions if [w n/d] pattern is used
+            els.qText.innerHTML = q.q.replace(/\[(.*?)\]/g, (match, fracStr) => parseFractionStr(fracStr));
+            
+            els.options.innerHTML = '';
+            q.opts.forEach((optStr, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'btn-option py-4 px-2 w-full text-2xl font-bold flex items-center justify-center min-h-[80px]';
+                btn.innerHTML = parseFractionStr(optStr);
+                
+                btn.onclick = () => handleAnswer(idx, btn);
+                els.options.appendChild(btn);
+            });
+        }
+
+        function handleAnswer(selectedIndex, btnElement) {
+            if (gameState !== 'ANSWERING') return;
+
+            const q = questions[currentQIndex];
+            const isCorrect = selectedIndex === q.ans;
+
+            // Visual feedback on button
+            Array.from(els.options.children).forEach(b => {
+                b.disabled = true;
+                b.style.opacity = '0.7';
+            });
+            btnElement.style.opacity = '1';
+
+            if (isCorrect) {
+                btnElement.classList.remove('border-blue-300', 'text-blue-900');
+                btnElement.classList.add('border-green-500', 'bg-green-100', 'text-green-800');
+                
+                playCorrectSound(); // Play correct sound
+
+                score += 10;
+                updateHUD();
+                
+                setTimeout(() => {
+                    prepareMotionPhase();
+                }, 1000);
+            } else {
+                btnElement.classList.remove('border-blue-300', 'text-blue-900');
+                btnElement.classList.add('border-red-500', 'bg-red-100', 'text-red-800', 'shake-anim');
+                
+                playWrongSound(); // Play wrong sound
+
+                setTimeout(() => {
+                    // Reset and allow retry
+                    Array.from(els.options.children).forEach(b => {
+                        b.disabled = false;
+                        b.style.opacity = '1';
+                    });
+                    btnElement.classList.remove('border-red-500', 'bg-red-100', 'text-red-800', 'shake-anim');
+                    btnElement.classList.add('border-blue-300', 'text-blue-900');
+                }, 1000);
+            }
+        }
+
+        function prepareMotionPhase() {
+            const q = questions[currentQIndex];
+            gameState = 'WAITING_MOTION';
+            
+            const zoneNames = ["KIRI", "TENGAH", "KANAN"];
+            const targetName = zoneNames[q.targetZone];
+            
+            // Show prompt
+            els.motionText.innerHTML = `Alhamdulillah Benar! <br> Ayo gerak-gerak di ZONA ${targetName} untuk lanjut!`;
+            els.motionPrompt.classList.remove('hidden-screen');
+            
+            // Highlight target zone
+            els.zones.forEach((z, i) => {
+                if (i === q.targetZone) {
+                    z.classList.add('zone-active');
+                } else {
+                    z.classList.remove('zone-active');
+                }
+            });
+
+            // Reset frame data to avoid instant triggering from previous moves
+            previousFrameData = null; 
+        }
+
+        function triggerMotionSuccess() {
+            gameState = 'PAUSED'; // prevent multiple triggers
+            
+            els.motionText.innerHTML = `✨ Mantap! ✨`;
+            els.zones.forEach(z => z.classList.remove('zone-active'));
+            
+            setTimeout(() => {
+                currentQIndex++;
+                updateHUD();
+                
+                if (currentQIndex >= questions.length) {
+                    endGame();
+                } else {
+                    loadQuestion();
+                }
+            }, 800);
+        }
+
+        function updateHUD() {
+            els.score.innerText = score;
+            
+            if (currentQIndex < questions.length) {
+                els.qNum.innerText = (currentQIndex + 1);
+            }
+            
+            const progressPct = ((currentQIndex) / questions.length) * 100;
+            els.progBar.style.width = `${progressPct}%`;
+            els.progShip.style.left = `${progressPct}%`;
+        }
+
+        function endGame() {
+            stopCamera();
+            stopBGM(); // Stop music when game ends
+
+            els.screenGame.classList.add('hidden-screen');
+            els.screenResult.classList.remove('hidden-screen');
+            
+            els.finalScore.innerText = score;
+            
+            if (score === 300) {
+                els.finalMsg.innerText = "Sempurna! Kamu master pecahan bawah laut!";
+            } else if (score >= 200) {
+                els.finalMsg.innerText = "Hebat sekali! Terus berlatih ya!";
+            } else {
+                els.finalMsg.innerText = "Alhamdulillah selesai. Mari belajar lagi agar lebih jago!";
+            }
+        }
+
+        
+        // CSS for shake animation
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                25% { transform: translateX(-5px); }
+                75% { transform: translateX(5px); }
+            }
+            .shake-anim { animation: shake 0.3s ease-in-out; }
+        `;
+        document.head.appendChild(style);
+
+        // Event Listeners
+        els.btnStart.addEventListener('click', async () => {
+            els.btnStart.innerText = "⏳ Membuka Kamera...";
+            els.btnStart.disabled = true;
+            
+            const hasCamera = await initCamera();
+            if (hasCamera) {
+                startGame();
+            }
+            
+            els.btnStart.innerHTML = "<span>📷 Izinkan Kamera & Mulai Petualangan!</span>";
+            els.btnStart.disabled = false;
+        });
+
+        els.btnStop.addEventListener('click', () => {
+            if (confirm("Yakin ingin mematikan kamera dan menghentikan misi?")) {
+                stopCamera();
+                stopBGM(); // Stop music if user quits early
+                els.screenGame.classList.add('hidden-screen');
+                els.screenStart.classList.remove('hidden-screen');
+            }
+        });
+
+        els.btnRestart.addEventListener('click', () => {
+            els.screenResult.classList.add('hidden-screen');
+            els.screenStart.classList.remove('hidden-screen');
+        });
+
+        // Start ambient animations
+        spawnBubbles();
+
+    </script>
+</body>
+</html>
